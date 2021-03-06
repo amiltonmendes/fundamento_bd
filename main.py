@@ -4,11 +4,9 @@ __email__ = "amilton.mendes@gmail.com"
 """
 import os
 from openpyxl import load_workbook
-
 from unidecode import unidecode
-
 import pandas as pd
-
+from mysql.connector.errors import IntegrityError
 
 
 from utils import  prepara_arquivo_download,Conexao,descompacta_arquivo
@@ -132,11 +130,27 @@ class CagedDBConfig():
                 df_caged = pd.read_csv(os.getcwd()+'/data/CAGEDMOV2020'+mes+'.txt',sep=';',nrows=head)
             df_caged.rename(columns=lambda s: unidecode(s).lower(), inplace=True)
             engine = self.conexao.get_engine()
-            df_caged.head().to_sql('caged', con=engine, if_exists='append', index=False)
-
+            #Código para inserir linhas de 1000 em 1000, para evitar timeout do banco de dados
+            print('Arquivo sendo carregado referente ao mês '+str(mes))
+            start=0
+            #if mes=='01':
+            #    start = 335000
+            for start_row in range(start, df_caged.shape[0], 1000):
+                end_row = min(start_row + 1000, df_caged.shape[0])
+                df_parcial = df_caged.iloc[start_row:end_row, :]
+                try:
+                    df_parcial.to_sql('caged', con=engine, if_exists='append', index=False,chunksize=1)
+                except:
+                    for i in range(start_row,end_row,1):
+                        df_parcial_int = df_caged.iloc[[i]]
+                        try:
+                            df_parcial_int.to_sql('caged', con=engine, if_exists='append', index=False,chunksize=1)
+                        except Exception as ie:
+                            print('Erro no registro '+str(i)+' do arquivo de mes '+mes)
+                            print('Erro '+str(ie))
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     caged = CagedDBConfig()
-    caged.prepara_bases()
-    caged.insere_dados_caged(['01','02','03'],head=5)
+    #caged.prepara_bases()
+    caged.insere_dados_caged(['01','02','03','04','05','06','07','08','09','10','11','12'])

@@ -28,7 +28,7 @@ class Conexao:
             )
         return mydb
     def get_engine(self):
-        return create_engine('mysql+mysqlconnector://'+self.USUARIO_BD+':'+self.SENHA_BD+'@localhost/'+self.BANCO_PROJETO)
+        return create_engine('mysql+mysqlconnector://'+self.USUARIO_BD+':'+self.SENHA_BD+'@localhost/'+self.BANCO_PROJETO, pool_recycle=1800)#,echo = True)
 def descompacta_arquivo(source,dest):
     """
     Função para a descompactação do arquivo no formato 7zip
