@@ -86,7 +86,6 @@ class CagedDBConfig():
             else:
                 sql += ',  ' + unidecode(coluna).lower() + ' INTEGER(3)\n'
 
-            #sql += ',  ' + unidecode(coluna).lower() + ' VARCHAR(50)\n'
 
         for coluna in sheet_data['Variável']:
             if coluna == 'fonte':
@@ -94,8 +93,7 @@ class CagedDBConfig():
             elif (coluna not in ['competência', 'saldomovimentação', 'idade', 'horascontratuais', 'salário']):
                 self.script_estrangeiras.append('ALTER TABLE CAGED ADD FOREIGN KEY (' + unidecode(coluna).lower() + ') REFERENCES  ' + unidecode(
                     coluna).upper() + '(codigo)')
-#                sql += ',  FOREIGN KEY (' + unidecode(coluna).lower() + ') REFERENCES ' + unidecode(
-#                    coluna).upper() + '(codigo) \n'
+
         sql += ');'
         cursor.execute(sql)
         con.commit()
@@ -129,18 +127,18 @@ class CagedDBConfig():
 
 
     def prepara_bases(self):
-        '''if prepara_arquivo_download(os.getcwd()+'\config'\
+        if prepara_arquivo_download(os.getcwd()+'\config'\
                 ,'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/Layout Novo Caged Movimentação.xlsx'\
                 ,'\layout_caged.xlsx'):
-            self.create_tables(os.getcwd()+'\config\layout_caged.xlsx')'''
+            self.create_tables(os.getcwd()+'\config\layout_caged.xlsx')
         self.create_tables(os.getcwd() + '\config\layout_caged.xlsx')
     def insere_dados_caged(self,lista_meses,head=None,uf=0,regiao=0):
         url = 'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/2020/Dezembro/CAGEDMOV2020'
         for mes in lista_meses:
             url_mes = url+mes+'.7z'
-            #Descomentar
-            #prepara_arquivo_download(os.getcwd()+'\\tmp' , url_mes , '\caged_2020'+mes+'7z')
-            #descompacta_arquivo(os.getcwd()+'/tmp/caged_2020'+mes+'7z',os.getcwd()+'/data')
+
+            prepara_arquivo_download(os.getcwd()+'\\tmp' , url_mes , '\caged_2020'+mes+'7z')
+            descompacta_arquivo(os.getcwd()+'/tmp/caged_2020'+mes+'7z',os.getcwd()+'/data')
 
             if regiao!= 0:
                 df_caged = pd.read_csv(os.getcwd() + '/data/CAGEDMOV2020' + mes + '.txt', sep=';')
@@ -184,10 +182,12 @@ class CagedDBConfig():
         con = self.conexao.get_con()
 
         cursor = con.cursor()
+        print('Gerando chaves estrangeiras')
         for sql in self.script_estrangeiras:
             cursor.execute(sql)
         con.commit()
         cursor.close()
+        print('Fim do script')
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
