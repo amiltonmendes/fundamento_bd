@@ -14,6 +14,7 @@ from utils import  prepara_arquivo_download,Conexao,descompacta_arquivo
 class CagedDBConfig():
     def __init__(self,usuario='projeto_bd',senha='teste123',base='fundamentos_bd'):
         self.conexao=Conexao(usuario,senha,base)
+        self.script_estrangeiras = []
 
 
     def cria_tabela(self,con, sheet, sheet_data):
@@ -38,7 +39,14 @@ class CagedDBConfig():
 
         sql += 'CREATE TABLE ' + nome_tabela.upper() + ' (\n'
         for coluna in sheet_data.columns:
-            sql += '  ' + unidecode(coluna).lower() + ' VARCHAR(150),\n'
+            if unidecode(coluna).lower() =='codigo':
+                if nome_tabela in ['secao','cbo2002ocupação','subclasse']:
+                    sql += '  ' + unidecode(coluna).lower() + ' VARCHAR(7),\n'
+                else:
+                    sql += '  ' + unidecode(coluna).lower() + ' INTEGER(3),\n'
+
+            else:
+                sql += '  ' + unidecode(coluna).lower() + ' VARCHAR(150),\n'
         sql += '  CONSTRAINT pk_' + nome_tabela + ' PRIMARY KEY(' + unidecode(sheet_data.columns[0]).lower() + ')\n'
         sql += ');'
         cursor.execute(sql)
@@ -73,14 +81,21 @@ class CagedDBConfig():
         sql += 'CREATE TABLE ' + nome_tabela + ' (\n'
         sql += '    id INT PRIMARY KEY AUTO_INCREMENT \n'
         for coluna in sheet_data['Variável']:
-            sql += ',  ' + unidecode(coluna).lower() + ' VARCHAR(50)\n'
+            if unidecode(coluna).lower() in ['secao','cbo2002ocupação','subclasse']:
+                sql += ',  ' + unidecode(coluna).lower() + ' VARCHAR(7)\n'
+            else:
+                sql += ',  ' + unidecode(coluna).lower() + ' INTEGER(3)\n'
+
+            #sql += ',  ' + unidecode(coluna).lower() + ' VARCHAR(50)\n'
 
         for coluna in sheet_data['Variável']:
             if coluna == 'fonte':
-                sql += ',  FOREIGN KEY (fonte) REFERENCES  FONTE_DESL(codigo) \n'
+                self.script_estrangeiras.append('ALTER TABLE CAGED ADD FOREIGN KEY (fonte) REFERENCES  FONTE_DESL(codigo)')
             elif (coluna not in ['competência', 'saldomovimentação', 'idade', 'horascontratuais', 'salário']):
-                sql += ',  FOREIGN KEY (' + unidecode(coluna).lower() + ') REFERENCES ' + unidecode(
-                    coluna).upper() + '(codigo) \n'
+                self.script_estrangeiras.append('ALTER TABLE CAGED ADD FOREIGN KEY (' + unidecode(coluna).lower() + ') REFERENCES  ' + unidecode(
+                    coluna).upper() + '(codigo)')
+#                sql += ',  FOREIGN KEY (' + unidecode(coluna).lower() + ') REFERENCES ' + unidecode(
+#                    coluna).upper() + '(codigo) \n'
         sql += ');'
         cursor.execute(sql)
         con.commit()
@@ -118,17 +133,28 @@ class CagedDBConfig():
                 ,'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/Layout Novo Caged Movimentação.xlsx'\
                 ,'\layout_caged.xlsx'):
             self.create_tables(os.getcwd()+'\config\layout_caged.xlsx')
-    def insere_dados_caged(self,lista_meses,head=None):
+    def insere_dados_caged(self,lista_meses,head=None,uf=0):
         url = 'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/2020/Dezembro/CAGEDMOV2020'
         for mes in lista_meses:
             url_mes = url+mes+'.7z'
-            prepara_arquivo_download(os.getcwd()+'\\tmp' , url_mes , '\caged_2020'+mes+'7z')
-            descompacta_arquivo(os.getcwd()+'/tmp/caged_2020'+mes+'7z',os.getcwd()+'/data')
-            if head == None:
+            #Descomentar
+            #prepara_arquivo_download(os.getcwd()+'\\tmp' , url_mes , '\caged_2020'+mes+'7z')
+            #descompacta_arquivo(os.getcwd()+'/tmp/caged_2020'+mes+'7z',os.getcwd()+'/data')
+
+            if uf!= 0:
+                df_caged = pd.read_csv(os.getcwd() + '/data/CAGEDMOV2020' + mes + '.txt', sep=';')
+                df_caged = df_caged[df_caged['uf']!=uf]
+                if head != None:
+                    df_caged = df_caged[:head]
+
+            elif head == None:
                 df_caged = pd.read_csv(os.getcwd()+'/data/CAGEDMOV2020'+mes+'.txt',sep=';')
             else:
                 df_caged = pd.read_csv(os.getcwd()+'/data/CAGEDMOV2020'+mes+'.txt',sep=';',nrows=head)
             df_caged.rename(columns=lambda s: unidecode(s).lower(), inplace=True)
+
+            # Eliminar subclasse incorreta
+            df_caged = df_caged[df_caged['subclasse'] != '8630505']
             engine = self.conexao.get_engine()
             #Código para inserir linhas de 1000 em 1000, para evitar timeout do banco de dados
             print('Arquivo sendo carregado referente ao mês '+str(mes))
@@ -138,6 +164,7 @@ class CagedDBConfig():
             for start_row in range(start, df_caged.shape[0], 1000):
                 end_row = min(start_row + 1000, df_caged.shape[0])
                 df_parcial = df_caged.iloc[start_row:end_row, :]
+
                 try:
                     df_parcial.to_sql('caged', con=engine, if_exists='append', index=False,chunksize=1)
                 except:
@@ -148,9 +175,16 @@ class CagedDBConfig():
                         except Exception as ie:
                             print('Erro no registro '+str(i)+' do arquivo de mes '+mes)
                             print('Erro '+str(ie))
+        con = self.conexao.get_con()
+
+        cursor = con.cursor()
+        for sql in self.script_estrangeiras:
+            cursor.execute(sql)
+        con.commit()
+        cursor.close()
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    caged = CagedDBConfig()
-    #caged.prepara_bases()
-    caged.insere_dados_caged(['01','02','03','04','05','06','07','08','09','10','11','12'])
+    caged = CagedDBConfig(base='fundamentos_2')
+    caged.prepara_bases()
+    caged.insere_dados_caged(['01','02'],uf=15,head=100)
