@@ -160,7 +160,7 @@ class CagedDBConfig():
             df_caged.rename(columns=lambda s: unidecode(s).lower(), inplace=True)
 
             # Eliminar subclasse incorreta
-            df_caged = df_caged[df_caged['subclasse'] != '8630505']
+            df_caged = df_caged[df_caged['subclasse'] != 8630505]
             engine = self.conexao.get_engine()
             #Código para inserir linhas de 1000 em 1000, para evitar timeout do banco de dados
             print('Arquivo sendo carregado referente ao mês '+str(mes))
