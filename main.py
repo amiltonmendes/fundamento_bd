@@ -129,11 +129,12 @@ class CagedDBConfig():
 
 
     def prepara_bases(self):
-        if prepara_arquivo_download(os.getcwd()+'\config'\
+        '''if prepara_arquivo_download(os.getcwd()+'\config'\
                 ,'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/Layout Novo Caged Movimentação.xlsx'\
                 ,'\layout_caged.xlsx'):
-            self.create_tables(os.getcwd()+'\config\layout_caged.xlsx')
-    def insere_dados_caged(self,lista_meses,head=None,uf=0):
+            self.create_tables(os.getcwd()+'\config\layout_caged.xlsx')'''
+        self.create_tables(os.getcwd() + '\config\layout_caged.xlsx')
+    def insere_dados_caged(self,lista_meses,head=None,uf=0,regiao=0):
         url = 'ftp://ftp.mtps.gov.br/pdet/microdados/NOVO CAGED/Movimentações/2020/Dezembro/CAGEDMOV2020'
         for mes in lista_meses:
             url_mes = url+mes+'.7z'
@@ -141,9 +142,14 @@ class CagedDBConfig():
             #prepara_arquivo_download(os.getcwd()+'\\tmp' , url_mes , '\caged_2020'+mes+'7z')
             #descompacta_arquivo(os.getcwd()+'/tmp/caged_2020'+mes+'7z',os.getcwd()+'/data')
 
-            if uf!= 0:
+            if regiao!= 0:
                 df_caged = pd.read_csv(os.getcwd() + '/data/CAGEDMOV2020' + mes + '.txt', sep=';')
-                df_caged = df_caged[df_caged['uf']!=uf]
+                df_caged = df_caged[df_caged['região']==regiao]
+                if head != None:
+                    df_caged = df_caged[:head]
+            elif uf!= 0:
+                df_caged = pd.read_csv(os.getcwd() + '/data/CAGEDMOV2020' + mes + '.txt', sep=';')
+                df_caged = df_caged[df_caged['uf']==uf]
                 if head != None:
                     df_caged = df_caged[:head]
 
@@ -187,4 +193,4 @@ class CagedDBConfig():
 if __name__ == '__main__':
     caged = CagedDBConfig(base='fundamentos_2')
     caged.prepara_bases()
-    caged.insere_dados_caged(['01','02'],uf=15,head=100)
+    caged.insere_dados_caged(['01','02','03','04','05','06','07','08','09','10','11','12'],regiao=1)
